@@ -23,6 +23,26 @@ Example: `3091ccc5-f3f6-4a06-92b5-803afce1ce57-4-approve`
 - **workItemId**: Work item identifier (numeric)
 - **decision**: `approve` or `reject`
 
+## Velocity snippet: mailto approve/reject links
+
+If your notification email template is written in Velocity, you can generate clickable `mailto:` links whose **subject matches the required format**.
+
+Snippet (add it wherever your template renders action links/buttons):
+
+```velocity
+#set($caseOid = $event.getCase().getOid())
+#set($workItemId = $event.getWorkItem().getId())
+#set($approveSubject = "${caseOid}-${workItemId}-approve")
+#set($rejectSubject  = "${caseOid}-${workItemId}-reject")
+
+<a href="mailto:approvals@example.com?subject=${approveSubject}">Approve</a>
+<a href="mailto:approvals@example.com?subject=${rejectSubject}">Reject</a>
+```
+
+Notes:
+- Replace `approvals@example.com` with the mailbox your agent polls (`IMAP_USER`).
+- Don’t add extra prefixes/suffixes to the subject; the agent expects **exactly** `{caseOid}-{workItemId}-{decision}`.
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
