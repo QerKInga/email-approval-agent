@@ -2,7 +2,9 @@ package com.emailapproval.imap;
 
 import com.emailapproval.approval.WorkItemClient;
 
+import jakarta.mail.Address;
 import jakarta.mail.Message;
+import jakarta.mail.internet.InternetAddress;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -52,7 +54,31 @@ public class EmailProcessor {
 
         LOG.info("Processing approval email: case=" + caseOid + ", workItem=" + workItemId + ", decision=" + decision);
 
+        String senderEmail = extractSenderEmail(message);
+        if (senderEmail == null) {
+            LOG.warning("Unable to determine sender email, skipping message");
+            return false;
+        }
+
         try {
+            String approverUserOid = workItemClient.getApproverUserOid(caseOid, workItemId);
+            if (approverUserOid == null) {
+                LOG.warning("Could not resolve approver user OID for case " + caseOid + ", work item " + workItemId);
+                return false;
+            }
+
+            String approverEmail = workItemClient.getUserEmail(approverUserOid);
+            if (approverEmail == null) {
+                LOG.warning("Could not resolve approver email for user " + approverUserOid);
+                return false;
+            }
+
+            if (!senderEmail.equalsIgnoreCase(approverEmail)) {
+                LOG.warning("Sender email '" + senderEmail + "' does not match approver email '" + approverEmail +
+                        "' for case " + caseOid + ", work item " + workItemId + ". Skipping.");
+                return false;
+            }
+
             boolean success = workItemClient.completeWorkItem(caseOid, workItemId, decision);
             if (success) {
                 LOG.info("Successfully completed work item " + workItemId + " for case " + caseOid);
@@ -62,8 +88,39 @@ public class EmailProcessor {
                 return false;
             }
         } catch (Exception e) {
-            LOG.log(Level.SEVERE, "Failed to complete work item via API", e);
+            LOG.log(Level.SEVERE, "Failed to validate approver or complete work item via API", e);
             return false;
+        }
+    }
+
+    private String extractSenderEmail(Message message) {
+        try {
+            Address[] from = message.getFrom();
+            if (from == null || from.length == 0) {
+                return null;
+            }
+
+            Address address = from[0];
+            if (address instanceof InternetAddress) {
+                String email = ((InternetAddress) address).getAddress();
+                return email != null ? email.trim().toLowerCase() : null;
+            }
+
+            String raw = address.toString();
+            if (raw == null || raw.isBlank()) {
+                return null;
+            }
+
+            int lt = raw.indexOf('<');
+            int gt = raw.indexOf('>');
+            if (lt >= 0 && gt > lt) {
+                return raw.substring(lt + 1, gt).trim().toLowerCase();
+            }
+
+            return raw.trim().toLowerCase();
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "Failed to extract sender email", e);
+            return null;
         }
     }
 }
