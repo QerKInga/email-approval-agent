@@ -107,3 +107,12 @@ With JSON body:
 ```
 
 Outcome is taken from `APPROVAL_API_APPROVE_OUTCOME` or `APPROVAL_API_REJECT_OUTCOME` based on the email subject.
+
+## Important notes
+
+- This agent relies mainly on cross-checking the sender address against the approval system's approver address. Anti-email address spoofing control (DMARC, SPF, DKIM) should be in place / consider before adopting this service. Please evaluate the security risk based on your environment.
+- Further discussion and enhancement are ongoing with the product core team on:
+  1. Encrypt the email and generate a secret nonce in the email that's only known to the intended recipients
+  2. Adding Email signature verification capability. (Rely on the user to sign the email)
+
+
